@@ -2,11 +2,11 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 
-st.set_page_config(page_title="Smart Economic Dispatch", layout="wide")
+st.set_page_config(page_title="Smart Grid Dispatch System", layout="wide")
 
-st.title("⚡ Smart Economic Dispatch Simulator (PSOC)")
+st.title("⚡ Smart Grid Dispatch & Monitoring System")
 
-# ---------------- INPUTS ---------------- #
+# ---------------- INPUT ---------------- #
 load = st.slider("Load Demand (MW)", 50, 500, 200)
 
 col1, col2 = st.columns(2)
@@ -32,17 +32,17 @@ if st.button("Run Dispatch"):
     if load <= (P1_min + P2_min):
         P1 = P1_min
         P2 = P2_min
-        status = "⚠️ Minimum generation constraint active"
         lambda_val = None
+        status = "UNDER-LOADED"
 
     # HIGH LOAD
     elif load >= (P1_max + P2_max):
         P1 = P1_max
         P2 = P2_max
-        status = "⚠️ Maximum generation limit reached"
         lambda_val = None
+        status = "OVERLOADED"
 
-    # NORMAL ECONOMIC DISPATCH
+    # NORMAL CASE
     else:
         lambda_val = (load + (b1/a1) + (b2/a2)) / ((1/a1) + (1/a2))
 
@@ -53,21 +53,20 @@ if st.button("Run Dispatch"):
         P1 = max(min(P1, P1_max), P1_min)
         P2 = max(min(P2, P2_max), P2_min)
 
-        # Balance
+        # Balance properly
         total = P1 + P2
         diff = load - total
 
         if abs(diff) > 0.01:
-          if b1 < b2:
-             P1 = min(P1 + diff, P1_max)
-          elif b2 < b1:
-             P2 = min(P2 + diff, P2_max)
-          else:
-             # Equal cost → split evenly
-              P1 += diff / 2
-              P2 += diff / 2
+            if b1 < b2:
+                P1 = min(P1 + diff, P1_max)
+            elif b2 < b1:
+                P2 = min(P2 + diff, P2_max)
+            else:
+                P1 += diff / 2
+                P2 += diff / 2
 
-        status = "✅ Economic dispatch successful"
+        status = "NORMAL"
 
     total = P1 + P2
 
@@ -75,6 +74,10 @@ if st.button("Run Dispatch"):
     cost1 = a1 * P1**2 + b1 * P1
     cost2 = a2 * P2**2 + b2 * P2
     total_cost = cost1 + cost2
+
+    # ---------------- SYSTEM METRICS ---------------- #
+    utilization = (total / (P1_max + P2_max)) * 100
+    loss = 0.05 * total   # 5% assumed loss
 
     # ---------------- OUTPUT ---------------- #
     st.subheader("📊 Dispatch Results")
@@ -86,19 +89,35 @@ if st.button("Run Dispatch"):
 
     st.write(f"**Lambda (λ):** {lambda_val if lambda_val else 'N/A'}")
     st.write(f"**Total Cost:** ₹{total_cost:.2f}")
-    st.write(f"**Status:** {status}")
+
+    # ---------------- SYSTEM STATUS ---------------- #
+    st.subheader("🟢 System Status")
+
+    if status == "UNDER-LOADED":
+        st.error("🔴 UNDER-LOADED SYSTEM (Minimum constraint active)")
+    elif status == "OVERLOADED":
+        st.error("🔴 OVERLOADED SYSTEM (Maximum capacity reached)")
+    else:
+        st.success("🟢 NORMAL OPERATION")
+
+    # ---------------- EXTRA METRICS ---------------- #
+    st.subheader("⚙️ System Metrics")
+
+    m1, m2 = st.columns(2)
+    m1.metric("System Utilization", f"{utilization:.2f}%")
+    m2.metric("Estimated Loss", f"{loss:.2f} MW")
 
     # ---------------- INSIGHT ---------------- #
-    st.subheader("🧠 Insights")
+    st.subheader("📌 Operator Recommendation")
 
     if b1 < b2:
-        st.success("Generator 1 is more economical → carries more load")
+        st.info("Increase Generator 1 output for better cost efficiency.")
     elif b2 < b1:
-        st.success("Generator 2 is more economical → carries more load")
+        st.info("Increase Generator 2 output for better cost efficiency.")
     else:
-        st.info("Both generators have similar cost → equal sharing")
+        st.info("Both generators share load equally for optimal operation.")
 
-    # ---------------- CHART ---------------- #
+    # ---------------- BAR CHART ---------------- #
     st.subheader("📉 Generation Distribution")
     st.bar_chart({
         "G1": [P1],
