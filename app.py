@@ -2,9 +2,9 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 
-st.set_page_config(page_title="Smart Grid Dispatch System", layout="wide")
+st.set_page_config(page_title="Smart Grid Control System", layout="wide")
 
-st.title("⚡ Smart Grid Dispatch & Monitoring System")
+st.title("⚡ Smart Grid Dispatch & Control System")
 
 # ---------------- INPUT ---------------- #
 load = st.slider("Load Demand (MW)", 50, 500, 200)
@@ -53,7 +53,7 @@ if st.button("Run Dispatch"):
         P1 = max(min(P1, P1_max), P1_min)
         P2 = max(min(P2, P2_max), P2_min)
 
-        # Balance properly
+        # Balance load properly
         total = P1 + P2
         diff = load - total
 
@@ -77,51 +77,61 @@ if st.button("Run Dispatch"):
 
     # ---------------- SYSTEM METRICS ---------------- #
     utilization = (total / (P1_max + P2_max)) * 100
-    loss = 0.05 * total   # 5% assumed loss
+    loss = 0.05 * total  # assumed 5% loss
 
-    # ---------------- OUTPUT ---------------- #
+    # ---------------- ALERT PANEL ---------------- #
+    st.subheader("🚨 System Alert")
+
+    if status == "UNDER-LOADED":
+        st.error("🔴 Load too low — minimum generation constraint active")
+    elif status == "OVERLOADED":
+        st.error("🔴 Load exceeds capacity — risk of overload")
+    else:
+        st.success("🟢 System operating normally")
+
+    # ---------------- CONTROL ROOM PANEL ---------------- #
+    st.subheader("🖥️ Control Room Summary")
+
+    st.write(f"""
+    - **Total Demand:** {load} MW  
+    - **Total Generation:** {total:.2f} MW  
+    - **System Utilization:** {utilization:.2f}%  
+    - **Operating Condition:** {status}
+    """)
+
+    # ---------------- RESULTS ---------------- #
     st.subheader("📊 Dispatch Results")
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Generator 1", f"{P1:.2f} MW")
-    c2.metric("Generator 2", f"{P2:.2f} MW")
+    c1.metric("Generator 1 Output", f"{P1:.2f} MW")
+    c2.metric("Generator 2 Output", f"{P2:.2f} MW")
     c3.metric("Total Generation", f"{total:.2f} MW")
 
     st.write(f"**Lambda (λ):** {lambda_val if lambda_val else 'N/A'}")
     st.write(f"**Total Cost:** ₹{total_cost:.2f}")
 
-    # ---------------- SYSTEM STATUS ---------------- #
-    st.subheader("🟢 System Status")
-
-    if status == "UNDER-LOADED":
-        st.error("🔴 UNDER-LOADED SYSTEM (Minimum constraint active)")
-    elif status == "OVERLOADED":
-        st.error("🔴 OVERLOADED SYSTEM (Maximum capacity reached)")
-    else:
-        st.success("🟢 NORMAL OPERATION")
-
-    # ---------------- EXTRA METRICS ---------------- #
+    # ---------------- METRICS ---------------- #
     st.subheader("⚙️ System Metrics")
 
     m1, m2 = st.columns(2)
-    m1.metric("System Utilization", f"{utilization:.2f}%")
+    m1.metric("Utilization", f"{utilization:.2f}%")
     m2.metric("Estimated Loss", f"{loss:.2f} MW")
 
-    # ---------------- INSIGHT ---------------- #
-    st.subheader("📌 Operator Recommendation")
+    # ---------------- DECISION LOGIC ---------------- #
+    st.subheader("📘 Dispatch Logic")
 
     if b1 < b2:
-        st.info("Increase Generator 1 output for better cost efficiency.")
+        st.info("Generator 1 is prioritized due to lower cost.")
     elif b2 < b1:
-        st.info("Increase Generator 2 output for better cost efficiency.")
+        st.info("Generator 2 is prioritized due to lower cost.")
     else:
-        st.info("Both generators share load equally for optimal operation.")
+        st.info("Equal cost condition → load shared equally.")
 
-    # ---------------- BAR CHART ---------------- #
+    # ---------------- CHART ---------------- #
     st.subheader("📉 Generation Distribution")
     st.bar_chart({
-        "G1": [P1],
-        "G2": [P2]
+        "Generator 1": [P1],
+        "Generator 2": [P2]
     })
 
     # ---------------- COST CURVES ---------------- #
